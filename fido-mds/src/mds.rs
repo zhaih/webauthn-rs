@@ -468,6 +468,9 @@ pub enum AttachmentHint {
     /// wifi-direct
     #[serde(rename = "wifi_direct")]
     WifiDirect,
+    /// smart-card
+    #[serde(rename = "smart-card")]
+    SmartCard,
 }
 
 /// The authenticator versions this device supports
@@ -485,6 +488,12 @@ pub enum AuthenticatorVersion {
     /// FIDO 2.1
     #[serde(rename = "FIDO_2_1")]
     Fido2_1,
+    /// FIDO 2.2
+    #[serde(rename = "FIDO_2_2")]
+    Fido2_2,
+    /// FIDO 2.3
+    #[serde(rename = "FIDO_2_3")]
+    Fido2_3,
 }
 
 impl fmt::Display for AuthenticatorVersion {
@@ -494,6 +503,8 @@ impl fmt::Display for AuthenticatorVersion {
             AuthenticatorVersion::Fido2_0 => write!(f, "FIDO 2.0"),
             AuthenticatorVersion::Fido2_1Pre => write!(f, "FIDO 2.1 PRE"),
             AuthenticatorVersion::Fido2_1 => write!(f, "FIDO 2.1"),
+            AuthenticatorVersion::Fido2_2 => write!(f, "FIDO 2.2"),
+            AuthenticatorVersion::Fido2_3 => write!(f, "FIDO 2.3"),
         }
     }
 }
@@ -502,26 +513,29 @@ impl fmt::Display for AuthenticatorVersion {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum AuthenticatorTransport {
     /// usb
-    #[serde(rename = "usb")]
+    #[serde(rename = "usb", alias = "USB")]
     Usb,
     /// nfc
-    #[serde(rename = "nfc")]
+    #[serde(rename = "nfc", alias = "NFC")]
     Nfc,
     /// lightning
-    #[serde(rename = "lightning")]
+    #[serde(rename = "lightning", alias = "LIGHTNING")]
     Lightning,
     /// ble
-    #[serde(rename = "ble")]
+    #[serde(rename = "ble", alias = "BLE")]
     Ble,
     /// internal
-    #[serde(rename = "internal")]
+    #[serde(rename = "internal", alias = "INTERNAL")]
     Internal,
     /// wireless
-    #[serde(rename = "wireless")]
+    #[serde(rename = "wireless", alias = "WIRELESS")]
     Wireless,
     /// hybrid (formerly caBLE)
-    #[serde(rename = "hybrid")]
+    #[serde(rename = "hybrid", alias = "HYBRID")]
     Hybrid,
+    /// smart-card
+    #[serde(rename = "smart-card", alias = "SMART-CARD", alias = "SMART_CARD")]
+    SmartCard,
 }
 
 impl fmt::Display for AuthenticatorTransport {
@@ -534,6 +548,7 @@ impl fmt::Display for AuthenticatorTransport {
             AuthenticatorTransport::Internal => write!(f, "internal"),
             AuthenticatorTransport::Wireless => write!(f, "wireless"),
             AuthenticatorTransport::Hybrid => write!(f, "hybrid (caBLE)"),
+            AuthenticatorTransport::SmartCard => write!(f, "smart-card"),
         }
     }
 }
@@ -542,13 +557,15 @@ impl FromStr for AuthenticatorTransport {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
+        match s.to_lowercase().as_str() {
             "usb" => Ok(AuthenticatorTransport::Usb),
             "nfc" => Ok(AuthenticatorTransport::Nfc),
             "lightning" => Ok(AuthenticatorTransport::Lightning),
             "ble" => Ok(AuthenticatorTransport::Ble),
             "internal" => Ok(AuthenticatorTransport::Internal),
             "wireless" => Ok(AuthenticatorTransport::Wireless),
+            "hybrid" => Ok(AuthenticatorTransport::Hybrid),
+            "smart-card" | "smart_card" => Ok(AuthenticatorTransport::SmartCard),
             _ => Err(()),
         }
     }
@@ -618,23 +635,78 @@ pub struct AuthenticatorGetInfo {
     /// The maximum size of large blob array this device can store, if the extension is supported.
     pub max_serialized_large_blob_array: Option<u32>,
     #[serde(rename = "forcePINChange")]
-    force_pin_change: Option<bool>,
+    pub force_pin_change: Option<bool>,
     /// The minimum pin length that this device requires.
     #[serde(rename = "minPINLength")]
     pub min_pin_length: Option<u32>,
-    firmware_version: Option<u32>,
-    /// The maximum size of the credBlob if supported
-    pub max_cred_blob_length: Option<u32>,
-    /// The maximum number of discoverable (resident) keys this device supports.
+    /// The maximum pin length that this device requires.
+    #[serde(rename = "maxPINLength")]
+    pub max_pin_length: Option<u32>,
+    /// The number of RP IDs for which minPINLength can be set
     #[serde(rename = "maxRPIDsForSetMinPINLength")]
     pub max_rpids_for_set_min_pin_length: Option<u32>,
+    /// Minimum PIN length RP IDs
+    #[serde(rename = "minPINLengthRPIDs")]
+    pub min_pin_length_rp_ids: Option<Vec<String>>,
+    /// PIN UV auth token
+    pub pin_uv_auth_token: Option<bool>,
+    pub firmware_version: Option<serde_json::Value>,
+    /// The maximum size of the credBlob if supported
+    pub max_cred_blob_length: Option<u32>,
     /// _
     pub preferred_platform_uv_attempts: Option<u32>,
-    uv_modality: Option<u32>,
+    pub uv_modality: Option<serde_json::Value>,
     #[serde(default)]
     pub certifications: BTreeMap<String, u32>,
     /// The number of remaining resident keys on this device.
     pub remaining_discoverable_credentials: Option<u32>,
+    /// Whether discoverable credentials are supported
+    pub discoverable_credentials: Option<bool>,
+    /// Whether long touch for reset is supported
+    pub long_touch_for_reset: Option<bool>,
+    /// Encryption identifier
+    pub enc_identifier: Option<serde_json::Value>,
+    /// HMAC secret
+    pub hmac_secret: Option<bool>,
+    /// User selected method
+    pub user_selected_method: Option<bool>,
+    /// Transports for reset
+    pub transports_for_reset: Option<Vec<AuthenticatorTransport>>,
+    /// UV discouraged
+    pub uv_discouraged: Option<bool>,
+    /// UV not required
+    pub uv_not_required: Option<bool>,
+    /// PIN complexity policy
+    pub pin_complexity_policy: Option<bool>,
+    /// PIN complexity policy URL
+    #[serde(rename = "pinComplexityPolicyURL")]
+    pub pin_complexity_policy_url: Option<String>,
+    /// Toggle always UV
+    pub toggle_always_uv: Option<bool>,
+    /// Encrypted credential store state
+    pub enc_cred_store_state: Option<serde_json::Value>,
+    /// EP attestation
+    #[serde(rename = "epAttestation")]
+    pub ep_attestation: Option<bool>,
+    /// Large blob key
+    pub large_blob_key: Option<bool>,
+    /// Minimum PIN length RP ID list
+    #[serde(rename = "minPINLengthRPIDList")]
+    pub min_pin_length_rp_id_list: Option<bool>,
+    /// Cred blob
+    pub cred_blob: Option<bool>,
+    /// Authenticator config commands
+    pub authenticator_config_commands: Option<Vec<u32>>,
+    /// Supported attestation formats V2
+    #[serde(rename = "attestationFormatsV2")]
+    pub attestation_formats_v2: Option<serde_json::Value>,
+    /// UV count since last PIN entry
+    pub uv_count_since_last_pin_entry: Option<u32>,
+    /// PIN token refresh
+    pub pin_token_refresh: Option<bool>,
+    /// Minimum PIN length extension ID
+    #[serde(rename = "minPINLengthExtensionId")]
+    pub min_pin_length_extension_id: Option<u32>,
     /// Vendor specific details
     #[serde(default)]
     pub vendor_prototype_config_commands: Vec<u32>,
@@ -642,6 +714,8 @@ pub struct AuthenticatorGetInfo {
     /// Supported attestation formats
     #[serde(default)]
     pub attestation_formats: Vec<AttestationFormat>,
+    /// An dark-mode icon representing this device.
+    pub icon_dark: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -845,6 +919,12 @@ pub struct MetadataStatement {
     pub ecdaa_trust_anchors: Vec<EcdaaAnchor>,
     /// An icon representing this device.
     pub icon: Option<serde_json::Value>,
+    /// An dark-mode icon representing this device.
+    pub icon_dark: Option<serde_json::Value>,
+    /// A light-mode logo of the provider.
+    pub provider_logo_light: Option<serde_json::Value>,
+    /// A dark-mode logo of the provider.
+    pub provider_logo_dark: Option<serde_json::Value>,
     /// The list of supported extensions of this authenticator
     #[serde(default)]
     pub supported_extensions: Vec<ExtensionDescriptor>,
@@ -1142,11 +1222,12 @@ impl FromStr for FidoMds {
     type Err = JwtError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s.chars().filter(|c| !c.is_whitespace()).collect::<String>();
         // Setup the trusted CA store so that we can validate the authenticity of the MDS blob.
         let root_ca = x509::X509::from_pem(GLOBAL_SIGN_ROOT_CA_R3.as_bytes())
             .map_err(|_| JwtError::OpenSSLError)?;
 
-        let jws = JwsCompact::from_str(s)?;
+        let jws = JwsCompact::from_str(&s)?;
 
         let fullchain = jws
             .get_x5c_chain()
@@ -1172,3 +1253,4 @@ impl FromStr for FidoMds {
         Ok(metadata)
     }
 }
+

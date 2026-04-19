@@ -603,13 +603,21 @@ async fn compat_finish_login(mut request: tide::Request<AppState>) -> tide::Resu
 async fn setup_fido_mds() -> AttestationCaList {
     info!("Fetching MDS ...");
 
-    let req = reqwest::get(FIDO_MDS_URL)
+    let client = reqwest::Client::builder()
+        .user_agent("webauthn-rs-demo/0.1.0")
+        .build()
+        .expect("Failed to build reqwest client");
+
+    let req = client
+        .get(FIDO_MDS_URL)
+        .send()
         .await
         .map_err(|err| {
             error!(?err, "Failed to fetch MDS");
         })
         .unwrap();
 
+    let status = req.status();
     let data = req
         .text()
         .await
@@ -617,6 +625,18 @@ async fn setup_fido_mds() -> AttestationCaList {
             error!(?err, "Failed to fetch MDS");
         })
         .unwrap();
+
+    if !status.is_success() {
+        error!(%status, "MDS fetch failed: {:?}", data);
+        // If we are rate limited, we might want to continue with an empty list
+        // or a cached version. For now, we still panic to be explicit in the demo
+        // but we'll at least know why.
+        if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            warn!("Rate limited by FIDO MDS, continuing with empty list");
+            return AttestationCaList::default();
+        }
+        panic!("MDS fetch failed");
+    }
 
     let mds = FidoMds::from_str(&data)
         .map_err(|err| {

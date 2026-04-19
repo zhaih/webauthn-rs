@@ -43,7 +43,7 @@ use crate::query::{AttrValueAssertion, Query};
 
 use webauthn_attestation_ca::{AttestationCaList, AttestationCaListBuilder};
 
-use base64::{engine::general_purpose::STANDARD, Engine};
+use base64::{engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD}, Engine};
 use compact_jwt::JwtError;
 use std::cmp::Ordering;
 use std::fmt;
@@ -1126,6 +1126,9 @@ impl TryFrom<RawFidoDevice> for FidoDevice {
             attestation_root_certificates,
             ecdaa_trust_anchors,
             icon: _,
+            icon_dark: _,
+            provider_logo_light: _,
+            provider_logo_dark: _,
             supported_extensions,
             mut authenticator_get_info,
             multi_device_credential_support,
@@ -1161,11 +1164,11 @@ impl TryFrom<RawFidoDevice> for FidoDevice {
                     inconsistent_data = true;
                     None
                 } else {
-                    match STANDARD.decode(trim_cert) {
+                    match STANDARD.decode(trim_cert).or_else(|_| URL_SAFE_NO_PAD.decode(trim_cert)) {
                         Ok(der) => Some(der),
                         Err(e) => {
                             warn!(
-                                "Invalid attestation root certificate - invalid base64 {:?} : {:?}, {:?}, {:?}",
+                                "Invalid attestation root certificate - invalid base64 (tried STANDARD and URL_SAFE_NO_PAD) {:?} : {:?}, {:?}, {:?}",
                                 e,
                                 aaid, aaguid, attestation_certificate_key_identifiers
                             );
